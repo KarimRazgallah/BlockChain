@@ -1,9 +1,15 @@
-import React, { Component } from 'react';
-import './App.css';
-import Web3 from 'web3';
-import Token from '../abis/Token.json';
-import { loadWeb3 } from '../store/interactions';
-import { connect } from 'react-redux';
+import React, { Component } from 'react'
+import './App.css'
+import Navbar from './Navbar'
+import Content from './Content'
+import { connect } from 'react-redux'
+import {
+  loadWeb3,
+  loadAccount,
+  loadToken,
+  loadExchange
+} from '../store/interactions'
+import { contractsLoadedSelector } from '../store/selectors'
 
 class App extends Component {
   componentWillMount() {
@@ -11,30 +17,35 @@ class App extends Component {
   }
 
   async loadBlockchainData(dispatch) {
-    const web3 = loadWeb3(dispatch)
-    await window.ethereum.enable();
-    const network = await web3.eth.net.getNetworkType()
-    const networkID = await web3.eth.net.getId()
-    const accounts = await web3.eth.getAccounts()
-    const abi = Token.abi
-    const networks = Token.networks
-    const token = new web3.eth.Contract(Token.abi, Token.networks[networkID].address)
-    const totalSupply = await token.methods.totalSupply().call()
-    console.log("totalSupply", totalSupply)
+    const web3 = await loadWeb3(dispatch)
+    const networkId = await web3.eth.net.getId()
+    await loadAccount(web3, dispatch)
+    const token = await loadToken(web3, networkId, dispatch)
+    if(!token) {
+      window.alert('Token smart contract not detected on the current network. Please select another network with Metamask.')
+      return
+    }
+    const exchange = await loadExchange(web3, networkId, dispatch)
+    if(!exchange) {
+      window.alert('Exchange smart contract not detected on the current network. Please select another network with Metamask.')
+      return
+    }
   }
 
   render() {
     return (
-      <div className="App">
-        hello
+      <div>
+        <Navbar />
+        { this.props.contractsLoaded ? <Content /> : <div className="content"></div> }
       </div>
     );
   }
 }
 
-
 function mapStateToProps(state) {
-  return {}
+  return {
+    contractsLoaded: contractsLoadedSelector(state)
+  }
 }
 
-export default connect(mapStateToProps)(App);
+export default connect(mapStateToProps)(App)
